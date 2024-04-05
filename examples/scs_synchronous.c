@@ -1,22 +1,56 @@
+/*
+This file contains an example implementation for the scheduling of the Clocks FMU. 
+Although the Scheduled Execution interface is used, all model partitions are 
+executed in the same thread. The model partitions are executed in the order determined by the priorities 
+of the clocks, i.e. the execution of a model partition is not interrupted by the execution of a model 
+partition with higher priority. 
+
+Overview of the clocks:
+
+    time        0 1 2 3 4 5 6 7 8 9
+    inClock1    + + + + + + + + + +
+    inClock2    + +             + +
+    inClock3            +          
+    outClock    ? ? ? ? ? ? ? ? ? ?
+    time        0 1 2 3 4 5 6 7 8 9
+
+    inClock1:   Constant input clock. Activated by the simulation algorithm every second 
+                according to the specification of Clock1 in the FMU's ModelDescription.xml
+    inClock2:   Triggered input clock. Activated by the simulation algorithm at 0sec, 1sec, 8sec and 9sec. 
+                The activation times are set by the simulator, not by the FMU.
+    inClock3:   Countdown clock. Clock tick set by the FMU in model partition 2 at 4sec.
+    outClock:   Output clock. Clock tick set by all input clocks every 5th time one of the input clocks 
+                ticks(i.e. variable totalInTicks % 5 == 0).
+
+In this example, output3 (belonging to Clock3) is connected to input2 (belonging to Clock2). Note that it
+is rather unusual to connect input and output of the same FMU, but in this example we would like to show 
+the effects of task interruptions with only one FMU.
+The simulator activates Clock3 only once at time 4sec. In ModelPartition3, output3 is set to 1000. As the 
+simulation takes place without preemption, this new value is not available in the next time step. 
+ */
+
 #define OUTPUT_FILE  "scs_synchronous_out.csv"
 #define LOG_FILE     "scs_synchronous_log.txt"
 
 #include "util.h"
-
-/* *****************  Inputs ***************** */
-fmi3Int32 inputs_c2[1] = { 0 };
-const fmi3ValueReference vrInputs_c2[1] = { vr_input2 };
 
 
 /* *****************  Input clocks ***************** */
 fmi3Float64 countdownClockIntervals[1] = { 0.0 };
 fmi3IntervalQualifier countdownClocksQualifier[1] = { fmi3IntervalNotYetKnown };
 fmi3ValueReference vr_countdownClocks[1] = { vr_inClock3 };
-fmi3ValueReference outClockVRs[1] = { vr_outClock };
-fmi3Clock outClockValues[2];
+
+
+/* *****************  Output clocks ***************** */
+fmi3Clock outputClocks[1] = { fmi3ClockInactive };
+const fmi3ValueReference vrOutputClocks[1] = { vr_outClock };
+
+
+/* *****************  Inputs ***************** */
+fmi3Int32 inputs_c2[1] = { 0 };
+const fmi3ValueReference vrInputs_c2[1] = { vr_input2 };
 
 /* *****************  Outputs ***************** */
-// separate the output variables after their clock (== modelpartition)
 fmi3Int32 outputs_c1[3] = { 0 };
 fmi3Int32 outputs_c2[3] = { 0 };
 fmi3Int32 outputs_c3[3] = { 0 };
@@ -29,24 +63,28 @@ const fmi3ValueReference vrOutputs_c3[3] = { vr_inClock3Ticks, vr_totalInClockTi
  * cb_clockUpdate()
 */
 static void cb_clockUpdate(fmi3InstanceEnvironment instanceEnvironment) {
-    countdownClockIntervals[0] = 0.0;
-    countdownClocksQualifier[0] = fmi3IntervalNotYetKnown;
-    FMI3GetIntervalDecimal(S, vr_countdownClocks, 1, countdownClockIntervals, countdownClocksQualifier);
+    // Check if countdown clock has ticked 
+    if (countdownClocksQualifier != fmi3IntervalChanged){
+        countdownClockIntervals[0] = 0.0;
+        CALL(FMI3GetIntervalDecimal(S, vr_countdownClocks, 1, countdownClockIntervals, countdownClocksQualifier));
+    }
+
+    // Check if output clock has ticked 
+    if (outputClocks[0] == fmi3ClockInactive) {
+        CALL(FMI3GetClock(S, vrOutputClocks, 1, outputClocks));
+    }
 }
 
-
 /*
- * cb_lockPreemption()
- * Callback function to grab a lock in order to avoid preemption in a critical section
- * Works on a globally defined variable initialized by the importer
+cb_lockPreemption()
+This scheduler does not use preemption, i.e. no locking necessary.
 */
 void cb_lockPreemption(void) {
     // Nothing to be done. 
 }
 /*
- * cb_unlockPreemption()
- * Callback function to release a lock
- * Works on a globally defined variable initialized by the importer
+cb_unlockPreemption()
+This scheduler does not use preemption, i.e. no locking necessary.
 */
 void cb_unlockPreemption(void) {
     // Nothing to be done. 
@@ -97,7 +135,12 @@ int main(int argc, char* argv[]) {
             inputs_c2[0] = outputs_c3[2];
         }
 
-        CALL(FMI3GetClock(S, outClockVRs, 1, outClockValues));
+        if (outputClocks[0] == fmi3ClockActive) {
+           //  If output clock is connected to another input clock, the input clock
+           //  must be activated. In this example, only a log message is created.
+           logEvent("Detected ticking of output clock (time=%g)", time);
+           outputClocks[0] = fmi3ClockInactive;
+        }
 
         CALL(recordVariables(S, time, outputFile));
 
