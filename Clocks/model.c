@@ -53,17 +53,18 @@ ModelPartition 2 does the following:
 static void activateModelPartition2(ModelInstance* comp, double time) {
 
     UNUSED(time);
+    
+    // increment the counter
+    M(inClock2Ticks)++;
+
+    M(result2) += M(input2);
 
     if (comp->lockPreemption) {
         comp->lockPreemption();
     }
 
-    // increment the counters
-    M(inClock2Ticks)++;
+    // increment the counter
     M(totalInClockTicks)++;
-
-    M(result2) += M(input2);
-    M(input2) = 0;
 
     // set output clocks
     M(outClock) = ((M(outClock) == false) && (M(totalInClockTicks) % 5 == 0));
