@@ -64,15 +64,16 @@ const fmi3ValueReference vrOutputs_c3[3] = { vr_inClock3Ticks, vr_totalInClockTi
 */
 static void cb_clockUpdate(fmi3InstanceEnvironment instanceEnvironment) {
     // Check if countdown clock has ticked 
-    if (countdownClocksQualifier != fmi3IntervalChanged){
+    if (countdownClocksQualifier[0] != fmi3IntervalChanged){
         countdownClockIntervals[0] = 0.0;
-        CALL(FMI3GetIntervalDecimal(S, vr_countdownClocks, 1, countdownClockIntervals, countdownClocksQualifier));
+        FMI3GetIntervalDecimal(S, vr_countdownClocks, 1, countdownClockIntervals, countdownClocksQualifier);
     }
 
     // Check if output clock has ticked 
     if (outputClocks[0] == fmi3ClockInactive) {
-        CALL(FMI3GetClock(S, vrOutputClocks, 1, outputClocks));
+		FMI3GetClock(S, vrOutputClocks, 1, outputClocks);
     }
+
 }
 
 /*
@@ -136,9 +137,8 @@ int main(int argc, char* argv[]) {
         }
 
         if (outputClocks[0] == fmi3ClockActive) {
-           //  If output clock is connected to another input clock, the input clock
-           //  must be activated. In this example, only a log message is created.
-           logEvent("Detected ticking of output clock (time=%g)", time);
+           //  If output clock is connected to another input clock, this input clock
+           //  must be activated. In this example, nothing is done.
            outputClocks[0] = fmi3ClockInactive;
         }
 
