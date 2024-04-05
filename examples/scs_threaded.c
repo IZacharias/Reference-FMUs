@@ -1,3 +1,35 @@
+/*
+This file contains an example implementation for the scheduling of the Clocks FMU. 
+The example can only be executed under Win32.
+A thread is created for each of the input clocks specified by the Clocks FMU.
+
+Overview of the clocks:
+
+    time        0 1 2 3 4 5 6 7 8 9
+    inClock1    + + + + + + + + + +
+    inClock2    + +             + +
+    inClock3            +          
+    outClock    ? ? ? ? ? ? ? ? ? ?
+    time        0 1 2 3 4 5 6 7 8 9
+
+    inClock1:   Constant input clock. Activated by the simulation algorithm every second 
+                according to the specification of Clock1 in the FMU's ModelDescription.xml
+    inClock2:   Triggered input clock. Activated by the simulation algorithm at 0sec, 1sec, 8sec and 9sec. 
+                The activation times are set by the simulator, not by the FMU.
+    inClock3:   Countdown clock. Clock tick set by the FMU in model partition 2 at 4sec.
+    outClock:   Output clock. Clock tick set by all input clocks every 5th time one of the input clocks 
+                ticks(i.e. variable totalInTicks % 5 == 0). The times depend on the calculation duration
+                of the model partitions. 
+
+In this example, output3 (belonging to Clock3) is connected to input2 (belonging to Clock2). Note that it
+is rather unusual to connect input and output of the same FMU, but in this example we would like to show 
+the effects of task interruptions with only one FMU.
+ModelPartition3 calculates for a very long time and has the lowest priority, so that the calculation is
+interrupted several times by the calculations belonging to ModelPartition1 and ModelPartition2.
+The simulator activates Clock3 only once at time 4sec. In ModelPartition3, output3 is set to 1000. Due to
+the long calculation time, this new value is not available for the other model partitions until much later.
+So although Clock2 is only activated at time 8sec, input2 is still 0 at this time.
+ */
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <assert.h>
@@ -163,8 +195,8 @@ int main(int argc, char* argv[]) {
         NULL,                  // resourcePath
         fmi3True,              // visible,
         fmi3True,              // loggingOn,
-        NULL,                  // requiredIntermediateVariables,
-        0,                     // nRequiredIntermediateVariables,
+        NULL,                  // instanceEnvironment,
+        NULL,                  // logMessage,
         cb_clockUpdate,        // clockUpdate,
         cb_lockPreemption,     // lockPreemption,
         cb_unlockPreemption    // unlockPreemption
