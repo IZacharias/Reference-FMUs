@@ -3,7 +3,8 @@ This file contains an example implementation for the scheduling of the Clocks FM
 Although the Scheduled Execution interface is used, all model partitions are 
 executed in the same thread. The model partitions are executed in the order determined by the priorities 
 of the clocks, i.e. the execution of a model partition is not interrupted by the execution of a model 
-partition with higher priority. 
+partition with higher priority. In particular, this means that the simulation result might be
+different from that of concurrent simulation.
 
 Overview of the clocks:
 
@@ -15,17 +16,17 @@ Overview of the clocks:
     time        0 1 2 3 4 5 6 7 8 9
 
     inClock1:   Constant input clock. Activated by the simulation algorithm every second 
-                according to the specification of Clock1 in the FMU's ModelDescription.xml
+                according to the specification of inClock1 in the FMU's ModelDescription.xml
     inClock2:   Triggered input clock. Activated by the simulation algorithm at 0sec, 1sec, 8sec and 9sec. 
                 The activation times are set by the simulator, not by the FMU.
     inClock3:   Countdown clock. Clock tick set by the FMU in model partition 2 at 4sec.
     outClock:   Output clock. Clock tick set by all input clocks every 5th time one of the input clocks 
                 ticks(i.e. variable totalInTicks % 5 == 0).
 
-In this example, output3 (belonging to Clock3) is connected to input2 (belonging to Clock2). Note that it
+In this example, output3 (belonging to inClock3) is connected to input2 (belonging to inClock2). Note that it
 is rather unusual to connect input and output of the same FMU, but in this example we would like to show 
 the effects of task interruptions with only one FMU.
-The simulator activates Clock3 only once at time 4sec. In ModelPartition3, output3 is set to 1000. As the 
+The simulator activates inClock3 only once at time 4sec. In ModelPartition3, output3 is set to 1000. As the 
 simulation takes place without preemption, this new value is not available in the next time step. 
  */
 

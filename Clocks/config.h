@@ -42,6 +42,7 @@ typedef enum {
 
 typedef struct {
     double inClock1_interval;
+    int inClock1_qualifier;
     double inClock3_interval;
     int inClock3_qualifier;
     int outClock;

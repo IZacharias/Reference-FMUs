@@ -119,6 +119,7 @@ static void activateModelPartition3(ModelInstance *comp, double time) {
 
 void setStartValues(ModelInstance *comp) {
     M(inClock1_interval) = 1.0;
+    M(inClock1_qualifier)= 2; // fmi3IntervalChanged
     M(inClock3_interval) = 0.0;
     M(inClock3_qualifier)= 0; // fmi3IntervalNotYetKnown
     M(outClock)          = 0;
@@ -228,6 +229,8 @@ Status getInterval(ModelInstance* comp, ValueReference vr, double* interval, int
     switch (vr) {
     case vr_inClock1:
         *interval = M(inClock1_interval);
+        *qualifier = M(inClock1_qualifier);
+        M(inClock1_qualifier) = 1;              // fmi3IntervalUnchanged
         return OK;
     case vr_inClock3:
         *qualifier = M(inClock3_qualifier);
